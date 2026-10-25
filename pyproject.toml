@@ -1,0 +1,20 @@
+[project]
+name = "transcriber"
+version = "0.1.0"
+description = "Local media transcription and speaker-labelled subtitles on Apple Silicon"
+readme = "README.md"
+authors = [
+    { name = "Fabián Guevara", email = "ricardo.fabian.guevara@gmail.com" }
+]
+requires-python = ">=3.12,<3.14"
+dependencies = [
+    "torchcodec~=0.7.0",
+    "whispermlx>=3.14.0",
+]
+
+[project.scripts]
+transcriber = "transcriber:main"
+
+[build-system]
+requires = ["uv_build>=0.11.32,<0.12.0"]
+build-backend = "uv_build"
