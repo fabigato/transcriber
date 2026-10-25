@@ -68,6 +68,8 @@ def main() -> None:
     parser.add_argument("--rerender", action="store_true",
                         help="inputs are .json transcripts from an earlier run: rewrite outputs (e.g. with --names) without re-transcribing")  # fmt: skip
     parser.add_argument("--model", default=None, help="MLX Whisper model (default: whisper-large-v3-turbo)")
+    parser.add_argument("--no-filter", action="store_true",
+                        help="keep everything Whisper produced (no hallucination filter, word-level speaker changes)")  # fmt: skip
     parser.add_argument("--skip-existing", action="store_true", help="skip files that already have outputs")
     parser.add_argument("-v", "--verbose", action="store_true")
     args = parser.parse_args()
@@ -82,13 +84,14 @@ def main() -> None:
     if bad := set(formats) - set(FORMATS):
         parser.error(f"unknown format(s): {', '.join(bad)}")
     names = parse_names(args.names)
+    clean = not args.no_filter
     from .subtitles import write_outputs
 
     if args.rerender:
         for path in map(Path, args.inputs):
             result = json.loads(path.read_text())
             base = path.with_suffix("")  # movie.en.json -> movie.en
-            for out in write_outputs(result, base, [f for f in formats if f != "json"], names):
+            for out in write_outputs(result, base, [f for f in formats if f != "json"], names, clean):
                 log.info("  wrote %s", out)
         return
 
@@ -127,11 +130,11 @@ def main() -> None:
                 str(media), args.speakers, args.min_speakers, args.max_speakers
             )
             base = out_dir / f"{media.stem}.{result['language']}"
-            written = write_outputs(result, base, formats, names)
+            written = write_outputs(result, base, formats, names, clean)
             if args.embed and media.suffix.lower() not in {".mp3", ".m4a", ".wav", ".flac", ".ogg", ".opus"}:
                 srt = base.with_name(base.name + ".srt")
                 if srt not in written:
-                    written += write_outputs(result, base, ["srt"], names)
+                    written += write_outputs(result, base, ["srt"], names, clean)
                 written.append(embed_subtitles(media, srt, result["language"], out_dir))
             for out in written:
                 log.info("  wrote %s", out)

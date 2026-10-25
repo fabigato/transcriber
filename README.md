@@ -61,4 +61,8 @@ the default rather than burning subtitles into the picture.
 - Diarization works best with a few speakers taking turns. Overlapping speech, music and very short
   interjections are where it slips.
 - Silence and background noise are skipped by voice-activity detection, which keeps Whisper from
-  inventing text there.
+  inventing text there. What still slips through is filtered when writing subtitles: lines repeated in a
+  loop, overly repetitive text, and a stray word or two of poorly aligned text in a long silence. Dropped
+  lines are printed, the `.json` keeps everything, and `--no-filter` turns this off.
+- Speaker changes are snapped to sentence ends, so a turn boundary that's a word off doesn't split a
+  sentence between two people. `--no-filter` also turns this off.

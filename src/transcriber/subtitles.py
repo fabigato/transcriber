@@ -1,15 +1,22 @@
 """Turn an aligned (and optionally diarized) transcript into subtitle cues and files."""
 
+import copy
 import json
+import logging
 import textwrap
 from dataclasses import dataclass
 from pathlib import Path
+
+from .cleanup import drop_hallucinations, snap_speakers
+
+log = logging.getLogger("transcriber")
 
 MAX_LINE_CHARS = 42
 MAX_LINES = 2
 MAX_CUE_SECONDS = 6.0
 MAX_GAP_SECONDS = 1.0
 SENTENCE_END = (".", "?", "!", "…")
+PARAGRAPH_GAP_SECONDS = 10.0  # in the .txt, a long silence starts a new paragraph even for the same speaker
 
 
 @dataclass
@@ -114,11 +121,13 @@ def to_vtt(cues: list[Cue]) -> str:
 def to_txt(cues: list[Cue]) -> str:
     """Readable transcript: one paragraph per speaker turn, stamped with its start time."""
     paragraphs: list[tuple[float, str | None, list[str]]] = []
+    prev_end = 0.0
     for cue in cues:
-        if paragraphs and paragraphs[-1][1] == cue.speaker:
+        if paragraphs and paragraphs[-1][1] == cue.speaker and cue.start - prev_end < PARAGRAPH_GAP_SECONDS:
             paragraphs[-1][2].append(cue.text)
         else:
             paragraphs.append((cue.start, cue.speaker, [cue.text]))
+        prev_end = cue.end
     out = []
     for start, speaker, texts in paragraphs:
         who = f"{speaker}: " if speaker else ""
@@ -129,9 +138,20 @@ def to_txt(cues: list[Cue]) -> str:
 WRITERS = {"srt": to_srt, "vtt": to_vtt, "txt": to_txt}
 
 
-def write_outputs(result: dict, base: Path, formats: list[str], names: dict[str, str] | None = None) -> list[Path]:
-    """Write `<base>.<fmt>` for each format. JSON keeps the raw words and speakers for re-rendering later."""
-    cues = build_cues(result, names)
+def write_outputs(
+    result: dict, base: Path, formats: list[str], names: dict[str, str] | None = None, clean: bool = True
+) -> list[Path]:
+    """Write `<base>.<fmt>` for each format.
+
+    JSON is the raw, uncleaned result so it can be re-rendered later with different settings.
+    """
+    shown = copy.deepcopy(result)
+    if clean:
+        shown["segments"], dropped = drop_hallucinations(shown["segments"])
+        for seg in dropped:
+            log.info("  dropped likely hallucination at %s: %r", _timestamp(seg["start"], ".")[:8], seg["text"])
+        snap_speakers(shown["segments"])
+    cues = build_cues(shown, names)
     written = []
     for fmt in formats:
         path = base.with_name(f"{base.name}.{fmt}")
