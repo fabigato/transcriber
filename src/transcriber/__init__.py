@@ -66,7 +66,9 @@ def main() -> None:
     )
     parser.add_argument("inputs", nargs="+", help="media files or folders (searched recursively)")
     parser.add_argument("-l", "--language", help="e.g. en, es, nl (default: auto-detect per file)")
-    parser.add_argument("-f", "--formats", default="srt,txt", help=f"comma-separated, from {','.join(FORMATS)}")
+    parser.add_argument("-f", "--formats",
+                        help=f"comma-separated, from {','.join(FORMATS)} (default: srt,txt; "
+                        "with --rerender, whichever already exist next to the JSON)")  # fmt: skip
     parser.add_argument("-o", "--output-dir", type=Path, help="default: next to each input file")
     parser.add_argument("-n", "--speakers", type=int, help="exact number of speakers, if known (improves accuracy)")
     parser.add_argument("--min-speakers", type=int)
@@ -89,7 +91,7 @@ def main() -> None:
     if not args.verbose:
         warnings.filterwarnings("ignore")
 
-    formats = [f.strip() for f in args.formats.split(",")]
+    formats = [f.strip() for f in (args.formats or "srt,txt").split(",")]
     if bad := set(formats) - set(FORMATS):
         parser.error(f"unknown format(s): {', '.join(bad)}")
     names = parse_names(args.names)
@@ -100,7 +102,13 @@ def main() -> None:
         for path in map(Path, args.inputs):
             result = json.loads(path.read_text())
             base = path.with_suffix("")  # movie.en.json -> movie.en
-            for out in write_outputs(result, base, [f for f in formats if f != "json"], names, clean):
+            if args.formats:
+                targets = [f for f in formats if f != "json"]
+            else:
+                # Refresh everything an earlier run produced, so no stale file keeps the old names.
+                targets = [f for f in FORMATS if f != "json" and base.with_name(f"{base.name}.{f}").exists()]
+                targets = targets or ["srt", "txt"]
+            for out in write_outputs(result, base, targets, names, clean):
                 log.info("  wrote %s", out)
         return
 
