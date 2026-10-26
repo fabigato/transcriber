@@ -30,10 +30,19 @@ def find_media(inputs: list[str]) -> list[Path]:
 
 
 def parse_names(spec: str | None) -> dict[str, str]:
-    """'SPEAKER_00=Ana,SPEAKER_01=Bob' -> {'SPEAKER_00': 'Ana', 'SPEAKER_01': 'Bob'}"""
+    """'SPEAKER_00=Ana,SPEAKER_01=Bob' -> {'SPEAKER_00': 'Ana', 'SPEAKER_01': 'Bob'}
+
+    Short keys ('0=Ana,1=Bob') work too, and a letter O typed for a zero ('SPEAKER_O1') is forgiven.
+    """
     if not spec:
         return {}
-    return dict(pair.split("=", 1) for pair in spec.split(","))
+    names = {}
+    for pair in spec.split(","):
+        key, _, name = pair.partition("=")
+        key = key.strip().upper()
+        number = key.removeprefix("SPEAKER_").replace("O", "0")
+        names[f"SPEAKER_{int(number):02d}" if number.isdigit() else key] = name.strip()
+    return names
 
 
 def embed_subtitles(media: Path, srt: Path, language: str, out_dir: Path) -> Path:

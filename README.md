@@ -47,6 +47,8 @@ uv run transcriber interview.mp4 -f srt,txt,json
 uv run transcriber --rerender interview.en.json --names SPEAKER_00=Ana,SPEAKER_01=Bob
 ```
 
+`--names 0=Ana,1=Bob` is short for the same thing. A name that matches no speaker is reported, not ignored.
+
 Telling it the number of speakers (`-n 2`, or `--min-speakers/--max-speakers`) noticeably helps accuracy.
 
 ### Fixing mistakes

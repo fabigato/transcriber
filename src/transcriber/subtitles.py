@@ -145,6 +145,13 @@ def write_outputs(
 
     JSON is the raw, uncleaned result so it can be re-rendered later with different settings.
     """
+    if names:
+        speakers = {s.get("speaker") for s in result["segments"]} - {None}
+        if unknown := sorted(set(names) - speakers):
+            log.warning(
+                "  --names: no speaker called %s in this transcript (it has: %s)",
+                ", ".join(unknown), ", ".join(sorted(speakers)) or "no speakers",
+            )  # fmt: skip
     shown = copy.deepcopy(result)
     if clean:
         shown["segments"], dropped = drop_hallucinations(shown["segments"])
